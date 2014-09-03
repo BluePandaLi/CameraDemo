@@ -1,5 +1,6 @@
 package com.binary.one.camera.demo;
 
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.util.Log;
@@ -8,6 +9,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 public class GameFragment extends Fragment implements SurfaceHolder.Callback {
 
@@ -15,6 +17,8 @@ public class GameFragment extends Fragment implements SurfaceHolder.Callback {
 	private static final boolean DEBUG = true;
 
 	private SurfaceView mSurfaceView = null;
+	private TextView mDebugTextView = null;
+
 	private GameLogic mGameLogic = null;
 	private Thread mGameThread = null;
 
@@ -30,6 +34,8 @@ public class GameFragment extends Fragment implements SurfaceHolder.Callback {
 		mSurfaceView = (SurfaceView) root.findViewById(R.id.game_surface);
 		mSurfaceView.getHolder().addCallback(this);
 
+		mDebugTextView = (TextView) root.findViewById(R.id.game_debug_info);
+
 		return root;
 	}
 
@@ -43,6 +49,26 @@ public class GameFragment extends Fragment implements SurfaceHolder.Callback {
 		if (DEBUG) Log.d(TAG, "Surface created!");
 
 		mGameLogic = GameLogic.newInstance(holder);
+		mGameLogic.addDebugCallback(new GameLogic.DebugCallback() {
+			@Override
+			public void updateDebugInfo(int screenWidth, int screenHeight, long frameCount) {
+				Resources res = getActivity().getResources();
+				float dpi = res.getDisplayMetrics().density;
+				final String debugInfo = res.getString(R.string.debug_info,
+						screenWidth,
+						screenHeight,
+						frameCount,
+						dpi);
+
+				getActivity().runOnUiThread(new Runnable() {
+					@Override
+					public void run() {
+						mDebugTextView.setText(debugInfo);
+					}
+				});
+			}
+		});
+
 		mGameThread = new Thread(mGameLogic);
 		mGameThread.start();
 	}
