@@ -1,8 +1,11 @@
 package com.binary.one.camera.demo;
 
+import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.util.Log;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 
 public class Camera {
 
@@ -21,29 +24,90 @@ public class Camera {
 
 	private Matrix mBaseMatrix = new Matrix();
 
-	private float mCurrentZoom = 1f, mTargetZoom;
+	private float mCurrentZoom = 1f, mTargetZoom, mMinZoom;
 	private Direction mZoomDir;
 
 	private float mCurrentX = 0f, mTargetX;
-	private Direction mDirX;
+	private Direction mDirX = null;
 
 	private float mCurrentY = 0f, mTargetY;
-	private Direction mDirY;
+	private Direction mDirY = null;
 
-	public Camera(int screenWidth, int screenHeight) {
+	private float mLastTouchX = 0l, mLastTouchY;
+
+	private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
+        @Override
+        public boolean onScale(ScaleGestureDetector detector) {
+            mCurrentZoom *= detector.getScaleFactor();
+
+            mCurrentZoom = mTargetZoom =
+            		Math.max(mMinZoom, Math.min(mCurrentZoom, mMinZoom + 2.0f));
+
+            mZoomDir = null;
+            return true;
+        }
+    }
+
+	private ScaleGestureDetector mScaleDetector = null;
+
+	public Camera(Context context, int screenWidth, int screenHeight) {
 		mScreenWidth = screenWidth;
 		mScreenHeight = screenHeight;
 
-		mCurrentZoom = mTargetZoom = Math.max(screenHeight / World.Constants.HEIGHT,
-				screenWidth / World.Constants.WIDTH);
+		mCurrentZoom = mTargetZoom = mMinZoom = screenHeight / World.Constants.HEIGHT;
 
-		setX(200);
+		mScaleDetector = new ScaleGestureDetector(context, new  ScaleListener());
+
+		float zoomWidth = screenWidth / World.Constants.WIDTH;
+		float zoomHeight = screenHeight / World.Constants.HEIGHT;
+
+		if (DEBUG) Log.d(TAG, String.format("Zooms: %.2f (Width) %.2f (Height) \n" +
+				"Screen: %d %d \n" +
+				"World: %.2f %.2f \n" +
+				"World (W-Zoom): %.2f %.2f \n" +
+				"World (H-Zoom): %.2f %.2f",
+				zoomWidth, zoomHeight,
+				screenWidth, screenHeight,
+				World.Constants.WIDTH, World.Constants.HEIGHT,
+				World.Constants.WIDTH * zoomWidth, World.Constants.HEIGHT * zoomWidth,
+				World.Constants.WIDTH * zoomHeight, World.Constants.HEIGHT * zoomHeight));
+
+		setX(World.Constants.WIDTH / 3);
+		setZoom(0.5f);
 	}
 
 	public void applyTransform(Canvas canvas) {
 		mBaseMatrix.setTranslate(mCurrentX, mCurrentY);
 		mBaseMatrix.postScale(mCurrentZoom, mCurrentZoom);
 		canvas.setMatrix(mBaseMatrix);
+	}
+
+	public void handleTouchEvent(MotionEvent event) {
+		float x = event.getX();
+		float y = event.getY();
+
+		mScaleDetector.onTouchEvent(event);
+
+		switch (event.getAction()) {
+		case MotionEvent.ACTION_DOWN:
+			mLastTouchX = x;
+			mLastTouchY = y;
+
+			mDirX = mDirY = null;
+			return;
+		default:
+			if (mScaleDetector.isInProgress()) {
+				return;
+			}
+
+			mCurrentX += (x - mLastTouchX) / mCurrentZoom;
+			mCurrentY += (y - mLastTouchY) / mCurrentZoom;
+			mLastTouchX = x;
+			mLastTouchY = y;
+
+			preformBoundsCheck();
+			return;
+		}
 	}
 
 	public void setX(float newValue) {
@@ -71,15 +135,55 @@ public class Camera {
 
 	private void preformBoundsCheck() {
 		checkWithinBoundsX();
+		checkWithinBoundsY();
+		checkWithinBoundsZoom();
 	}
 
 	private void checkWithinBoundsX() {
-		float boundryCheck = -mCurrentX;
-
-		if (boundryCheck < 0) {
+		if (World.Constants.WIDTH * mCurrentZoom <= mScreenWidth) {
 			mCurrentX = 0;
-		} else if (boundryCheck > World.Constants.WIDTH - mScreenWidth) {
-			mCurrentX = -1 * (World.Constants.WIDTH - mScreenWidth);
+			return;
+		}
+
+		if (mCurrentX > 0) {
+			mCurrentX = 0;
+			return;
+		}
+
+		float lastViewablePortion = World.Constants.WIDTH - (mScreenWidth / mCurrentZoom);
+
+		if (DEBUG) Log.d(TAG, String.format("Bound mCurrentX: %.2f", lastViewablePortion));
+
+		if (mCurrentX < -lastViewablePortion) {
+			mCurrentX = -lastViewablePortion;
+			return;
+		}
+	}
+
+	private void checkWithinBoundsY() {
+		if (World.Constants.HEIGHT * mCurrentZoom <= mScreenHeight) {
+			mCurrentY = 0;
+			return;
+		}
+
+		if (mCurrentY > 0) {
+			mCurrentY = 0;
+			return;
+		}
+
+		float lastViewablePortion = World.Constants.HEIGHT - (mScreenHeight / mCurrentZoom);
+
+		if (DEBUG) Log.d(TAG, String.format("Bound mCurrentY: %.2f", lastViewablePortion));
+
+		if (mCurrentY < -lastViewablePortion) {
+			mCurrentY = -lastViewablePortion;
+			return;
+		}
+	}
+
+	private void checkWithinBoundsZoom() {
+		if (mCurrentZoom < mMinZoom) {
+			mCurrentZoom = mMinZoom;
 		}
 	}
 

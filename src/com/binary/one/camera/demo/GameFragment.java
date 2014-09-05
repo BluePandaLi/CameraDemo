@@ -5,9 +5,11 @@ import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.View.OnTouchListener;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
@@ -22,6 +24,17 @@ public class GameFragment extends Fragment implements SurfaceHolder.Callback {
 	private GameLogic mGameLogic = null;
 	private Thread mGameThread = null;
 
+	private OnTouchListener mTouchListener = new OnTouchListener() {
+		@Override
+		public boolean onTouch(View v, MotionEvent event) {
+			if (mGameLogic != null) {
+				mGameLogic.handleTouchEvent(event);
+				return true;
+			}
+			return false;
+		}
+	};
+
 	public static GameFragment newInstance() {
 		return new GameFragment();
 	}
@@ -33,6 +46,7 @@ public class GameFragment extends Fragment implements SurfaceHolder.Callback {
 		View root = inflater.inflate(R.layout.fragment_game, container, false);
 		mSurfaceView = (SurfaceView) root.findViewById(R.id.game_surface);
 		mSurfaceView.getHolder().addCallback(this);
+		mSurfaceView.setOnTouchListener(mTouchListener);
 
 		mDebugTextView = (TextView) root.findViewById(R.id.game_debug_info);
 
@@ -48,7 +62,7 @@ public class GameFragment extends Fragment implements SurfaceHolder.Callback {
 	public void surfaceCreated(SurfaceHolder holder) {
 		if (DEBUG) Log.d(TAG, "Surface created!");
 
-		mGameLogic = GameLogic.newInstance(holder);
+		mGameLogic = GameLogic.newInstance(getActivity(), holder);
 		mGameLogic.addDebugCallback(new GameLogic.DebugCallback() {
 			@Override
 			public void updateDebugInfo(int screenWidth, int screenHeight, long frameCount) {

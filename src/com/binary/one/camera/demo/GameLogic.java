@@ -1,10 +1,12 @@
 package com.binary.one.camera.demo;
 
+import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 
 public class GameLogic implements Runnable {
@@ -20,18 +22,18 @@ public class GameLogic implements Runnable {
 	private DebugCallback mDebugCallback = null;
 	private long mFrameCount = 0l, mLastLogUpdate = 0l;
 
-	public static GameLogic newInstance(SurfaceHolder holder) {
-		return new GameLogic(holder);
+	public static GameLogic newInstance(Context context, SurfaceHolder holder) {
+		return new GameLogic(context, holder);
 	}
 
-	private GameLogic(SurfaceHolder holder) {
+	private GameLogic(Context context, SurfaceHolder holder) {
 		mHolder = holder;
 
 		Rect screen = mHolder.getSurfaceFrame();
 		int screenWidth = screen.width();
 		int screenHeight = screen.height();
 
-		mCamera = new Camera(screenWidth, screenHeight);
+		mCamera = new Camera(context, screenWidth, screenHeight);
 
 	}
 
@@ -91,6 +93,10 @@ public class GameLogic implements Runnable {
 
 			canvas.drawRect(mBackgroundRect, mColorPaint);
 		}
+	}
+
+	public void handleTouchEvent(MotionEvent event) {
+		mCamera.handleTouchEvent(event);
 	}
 
 	public void stop() {
